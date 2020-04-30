@@ -1,107 +1,119 @@
-#include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
 #include <stdio.h>
-#include <time.h>
 #include <string.h>
+#include <stdlib.h>
 #include <semaphore.h>
+#include <unistd.h>
+#include <time.h>
+#include <pthread.h>
 
 
-sem_t sem1,sem3,sem4,sem2;
-char *buff1 ,*buff2;
 
-void *thread1(void * t)
+sem_t s1;
+sem_t s2;
+sem_t s3;
+sem_t s4;
+char *temp1;
+char temp2[10];
+char *temp3;
+FILE *fp;
+FILE *fp1;
+
+void * proc1(void * var)
 {
-    sem_wait(&sem1);
-    FILE *fp;
-    if ((fp = fopen("file-1.txt","r")) == NULL){
-       printf("Error! opening file");
+    sem_wait(&s1);
+    fp = fopen("file-1.txt","r");
+    if (fp == NULL)
+	{
+       printf("Could not open file.");
        exit(1);
     }
-
-    fgets(buff1, 11, (FILE*)fp);
-    //printf("%s\n", buff1 );
+	
+    fgets(temp1,11,(FILE*)fp);
     fclose(fp);
-    sem_post(&sem2);
+	
+    sem_post(&s2);
 }
 
-void* thread2 (void * t)
+void * proc2(void * var)
 { 
-    sem_wait(&sem2);		
-
-    FILE *fp;
-    if ((fp = fopen("file-2.txt","r")) == NULL){
-       printf("Error! opening file");
+    sem_wait(&s2);		
+	fp1 = fopen("file-2.txt","r");
+    if (fp1== NULL)
+	{
+       printf("Could not open file.");
        exit(1);
     }
-    char buf[10];
-    fgets(buf, 11, (FILE*)fp);
-    //printf("%s\n", buf );
-    for (int i = 10, j = 0; i < 21; i++,j++)
-    {
-        buff1[i]=buf[j];
-    }
+	
+    fgets(temp2,11,(FILE*)fp1);
     
-    
-
-    fclose(fp);
-    sem_post(&sem3);
+	//since we still have to write to temp1 but we can't override hence:
+	int i=10;
+	int j=0;
+	while(j<11)
+	{
+		temp1[i]=temp2[j];
+		i++;
+		j++;
+	}
+    fclose(fp1);
+    sem_post(&s3);
 }
 
-void* thread3 (void * t)
+void * proc3(void * var)
 { 
-    sem_wait(&sem3);
+    sem_wait(&s3);
     int i=0;
     while (i<21)
     {
-        buff2[i]=buff1[i];
+        temp3[i]=temp1[i];
         i++;
     }
     
     
-    sem_post(&sem4);
+    sem_post(&s4);
 }
 
-void* thread4 (void * t)
+void * proc4(void * var)
 { 
-    sem_wait(&sem4);
+    sem_wait(&s4);
             
-    printf("\nFirst 10 Characters of First File!\n");
-    for (size_t i = 0; i < 21; i++)
-    {
-        if (i<10)
+    printf("\nReading From Buffer and printing to Screen\n");
+    int i=0;
+	while(i<21)
+	{
+		if (i==10)
         {
-            printf("%c",buff2[i]);
-        }else if (i == 10)
-        {
-            printf("\n First 10 Characters Of Second File!\n");
-            printf("%c",buff2[i]);
-        }else
-        {
-            printf("%c",buff2[i]);
+            printf("%c",temp3[i]);
         }
-    }
-    printf("\n");
-    
+		else if (i<10)
+        {
+            printf("%c",temp3[i]);
+        }
+		else
+        {
+            printf("%c",temp3[i]);
+        }
+		i++;
+	}
 }
 
 int main(int argc,char* argv[])
 {
-	buff1 = (char*)malloc(21*sizeof(char));
-    buff2 = (char*)malloc(21*sizeof(char));
-
+	temp1=(char*)malloc(21*sizeof(char));
+	temp3=(char*)malloc(21*sizeof(char));
     pthread_t id1, id2,id3,id4;
-	sem_init(&sem1, 0, 1);//a
-	sem_init(&sem2, 0, 0);//b
-	sem_init(&sem3, 0, 0);//c
-    sem_init(&sem4, 0, 0);//d
-	pthread_create(&id1, NULL, &thread4, NULL);
-	pthread_create(&id2, NULL, &thread3, NULL);
-	pthread_create(&id3, NULL, &thread2, NULL);
-    pthread_create(&id4, NULL, &thread1, NULL);
+	sem_init(&s1, 0, 1);
+	sem_init(&s2, 0, 0);
+	sem_init(&s3, 0, 0);
+    sem_init(&s4, 0, 0);
+	pthread_create(&id1, NULL, &proc4, NULL);
+	pthread_create(&id2, NULL, &proc3, NULL);
+	pthread_create(&id3, NULL, &proc2, NULL);
+    pthread_create(&id4, NULL, &proc1, NULL);
 	pthread_join(id1, NULL);
 	pthread_join(id2, NULL);
 	pthread_join(id3, NULL);
     pthread_join(id4, NULL);
+	
 	return 0;
 }
